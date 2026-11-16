@@ -119,7 +119,7 @@ describe("forwarding", () => {
     const headers = received[0]?.headers ?? {};
     expect(headers["x-epic-fwd-user-agent"]).toBe("Mozilla/5.0 Test");
     expect(headers["x-epic-fwd-accept-language"]).toBe("pt-BR");
-    expect(headers["x-epic-fwd-x-vercel-ip-country"]).toBe("BR");
+    expect(headers["x-epic-country"]).toBe("BR");
     const sent = JSON.stringify(headers);
     for (const leaked of ["user-1", "secret-session", "secret-auth", "secret-oidc", "203.0.113.9"]) {
       expect(sent).not.toContain(leaked);
