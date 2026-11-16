@@ -1,0 +1,29 @@
+# Changelog
+
+All notable changes to this package are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
+adheres to [Semantic Versioning](https://semver.org/).
+
+## [0.1.0] - 2026-11-16
+
+### Added
+
+- `createEpicHandler`: the pipe between Epic's runtime
+  and Epic, for any server that speaks the Fetch API.
+- `@epicnew/analytics/next`: `createEpicRoute` for a catch-all route handler and
+  `<EpicScript />` for the root layout.
+- `@epicnew/analytics/otel`: `register` / `registerEpicTracing` for server
+  traces through `@vercel/otel`.
+- `@epicnew/analytics/browser`: typed `getEpic`, `onEpicReady` and `track` over
+  the runtime's page API.
+
+### Security
+
+- Forwards only an allow-list of the browser's own headers; never cookies,
+  credentials, addresses or the referrer.
+- Sends the token only over https (http only to `localhost`), never along a
+  redirect; requires a secret of at least 32 characters.
+- Refuses paths outside Epic's relay, cross-site writes, methods other than GET
+  and POST, and bodies over 4 MiB.
+- Serves Epic's answer only as JSON or a script, with `nosniff`, a sandboxing
+  CSP and `Vary: cookie`.

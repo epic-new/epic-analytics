@@ -1,0 +1,141 @@
+{
+  "name": "@epicnew/analytics",
+  "version": "0.1.0",
+  "description": "Connect your app to Epic Analytics: session replay, bug reports and server traces, through one route in your own domain.",
+  "keywords": [
+    "epic",
+    "analytics",
+    "session-replay",
+    "observability",
+    "opentelemetry",
+    "nextjs"
+  ],
+  "homepage": "https://github.com/epic-new/epic-analytics#readme",
+  "bugs": "https://github.com/epic-new/epic-analytics/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epic-new/epic-analytics.git"
+  },
+  "license": "MIT",
+  "author": "Epic",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.18"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./next": {
+      "import": {
+        "types": "./dist/next/index.d.ts",
+        "default": "./dist/next/index.js"
+      },
+      "require": {
+        "types": "./dist/next/index.d.cts",
+        "default": "./dist/next/index.cjs"
+      }
+    },
+    "./otel": {
+      "import": {
+        "types": "./dist/otel/index.d.ts",
+        "default": "./dist/otel/index.js"
+      },
+      "require": {
+        "types": "./dist/otel/index.d.cts",
+        "default": "./dist/otel/index.cjs"
+      }
+    },
+    "./browser": {
+      "import": {
+        "types": "./dist/browser/index.d.ts",
+        "default": "./dist/browser/index.js"
+      },
+      "require": {
+        "types": "./dist/browser/index.d.cts",
+        "default": "./dist/browser/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "next": [
+        "./dist/next/index.d.ts"
+      ],
+      "otel": [
+        "./dist/otel/index.d.ts"
+      ],
+      "browser": [
+        "./dist/browser/index.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "format": "biome check --write .",
+    "test": "bun test",
+    "check:package": "publint --strict && attw --pack . --profile node16",
+    "test:example": "bun scripts/example-smoke.ts",
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build && bun run check:package"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "next": ">=14.2",
+    "react": "^18.2 || ^19"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": ">=0.200.0 <0.300.0",
+    "@opentelemetry/instrumentation": ">=0.200.0 <0.300.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-logs": ">=0.200.0 <0.300.0",
+    "@opentelemetry/sdk-metrics": "^2.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "@vercel/otel": "^2.3.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@biomejs/biome": "2.6.8",
+    "@types/bun": "1.4.4",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "next": "16.4.5",
+    "publint": "0.3.25",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tsup": "9.0.0",
+    "typescript": "6.0.3"
+  }
+}
