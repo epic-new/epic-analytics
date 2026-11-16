@@ -14,8 +14,9 @@ const FORWARDED = /^(user-agent|accept-language|sec-ch-[a-z-]+|sec-gpc|dnt|save-
 
 /**
  * The edge headers that carry the visitor's country, by platform. The country
- * goes on as `x-epic-country`: Epic's own edge may drop a header named after a
- * platform's (Vercel strips what looks like its own). A hint, never proof.
+ * goes on as `x-epic-country`, because the Vercel edge in front of Epic may
+ * drop a header named after Vercel's own. A hint, never proof: only an exact
+ * two-letter code goes on.
  */
 const COUNTRY = ["x-vercel-ip-country", "cf-ipcountry", "cloudfront-viewer-country"];
 
@@ -35,8 +36,8 @@ export function forwardedHeaders(request: Request, into: Headers): void {
     if (BODY.has(name)) into.set(name, value);
     else if (FORWARDED.test(name)) into.set(`x-epic-fwd-${name}`, value);
   });
-  const country = COUNTRY.map((name) => request.headers.get(name)).find((value) => value);
-  if (country) into.set("x-epic-country", country.slice(0, 2));
+  const country = COUNTRY.map((name) => request.headers.get(name)?.trim()).find((value) => value);
+  if (country && /^[A-Za-z]{2}$/.test(country)) into.set("x-epic-country", country.toUpperCase());
 }
 
 /** What Epic answers with: data and scripts, never a document. */

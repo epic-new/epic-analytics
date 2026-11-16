@@ -126,6 +126,14 @@ describe("forwarding", () => {
     }
   });
 
+  it("sends the country only as an exact two-letter code", async () => {
+    await call("GET", "config", { "cf-ipcountry": "br" });
+    await call("GET", "config", { "x-vercel-ip-country": "BRAZIL" });
+
+    expect(received[0]?.headers["x-epic-country"]).toBe("BR");
+    expect(received[1]?.headers["x-epic-country"]).toBeUndefined();
+  });
+
   it("keeps the token when extra upstream headers try to replace it", async () => {
     await call(
       "GET",
