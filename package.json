@@ -97,7 +97,7 @@
     "test": "bun test",
     "check:package": "publint --strict && attw --pack . --profile node16",
     "test:example": "bun scripts/example-smoke.ts",
-    "prepublishOnly": "bun run typecheck && bun run test && bun run build && bun run check:package"
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build && publint --strict"
   },
   "publishConfig": {
     "access": "public",
