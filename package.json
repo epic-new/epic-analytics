@@ -1,6 +1,6 @@
 {
   "name": "@epicnew/analytics",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect your app to Epic Analytics: session replay, bug reports and server traces, through one route in your own domain.",
   "keywords": [
     "epic",
