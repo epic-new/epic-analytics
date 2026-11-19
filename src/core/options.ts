@@ -6,7 +6,17 @@ export type CurrentUserId = (request: Request) => string | null | undefined | Pr
  * pseudonym of it; `name` and `email` are what Analytics shows the project's
  * managers in place of that pseudonym.
  */
-export type CurrentUserProfile = { id: string; name?: string | null; email?: string | null };
+export type CurrentUserProfile = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  /**
+   * The company, team or account the person is acting for, so Analytics can
+   * look at a customer as a whole. Its id never reaches Epic either, only a
+   * pseudonym of it.
+   */
+  organization?: { id: string; name?: string | null } | null;
+};
 
 /** Who is signed in for this request, with what Epic may show of them, or nothing for nobody. */
 export type CurrentUser = (

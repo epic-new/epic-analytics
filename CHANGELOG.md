@@ -12,6 +12,10 @@ adheres to [Semantic Versioning](https://semver.org/).
   person's `name` and `email`, so Analytics can show people by name. They are
   sent as `x-epic-person` on the `identity` call only, from the server, cut to
   100 and 254 characters. `currentUserId` keeps working unchanged.
+- `organization` on `currentUser`, sent as a pseudonym of its id (`org_…`,
+  under the same secret) with its name.
+- `capture()`: record an event from the server for a signed-in person, under
+  the same pseudonym the route uses. Never throws.
 
 ## [0.1.2] - 2026-11-16
 

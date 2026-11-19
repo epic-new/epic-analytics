@@ -15,9 +15,10 @@
 ---
 
 - **Three files, five minutes.** A route, a script tag, an instrumentation hook.
-- **Your users stay yours.** Epic never sees a user id, a cookie or an IP address
-  — only a pseudonym your server derives with your own secret, and a name and
-  email only if you choose to [show people by name](#show-people-by-name).
+- **Your users stay yours.** Epic never sees a user id or a cookie, and never
+  stores an IP address — only a pseudonym your server derives with your own
+  secret, and a name and email only if you choose to
+  [show people by name](#show-people-by-name).
 - **Never out of date.** The recorder, consent prompt and report button are
   served by Epic through your route. Improvements reach your app on its next page
   load, with no upgrade on your side.
@@ -228,9 +229,30 @@ export const { GET, POST } = createEpicRoute({
   details from their page in Analytics.
 - Name is cut to 100 characters, email to 254. Leave both out to keep a person
   pseudonymous.
+- Add `organization: { id, name }` for B2B apps, so Analytics can look at a
+  customer account as a whole. Its id reaches Epic only as a pseudonym, like
+  the person's.
 
 This makes Epic a processor of that personal data on your behalf; say so where
 your privacy policy lists the services you use.
+
+## Events from your server
+
+Something that happens on your server — a webhook, a renewal, a job that
+finished — can be recorded for the person it happened to, and shows up with
+their sessions:
+
+```ts
+import { capture } from "@epicnew/analytics";
+
+await capture({ userId: user.id, event: "subscription_renewed", properties: { plan: "pro" } });
+```
+
+It uses the same `EPIC_API_URL`, `EPIC_PUBLISHING_TOKEN` and `EPIC_SECRET` as
+the route, so the person is the same person. It never throws: it resolves
+`false` when Epic is not configured, the event is not valid or Epic did not
+accept it. Names are letters, digits and `_ . : -` (up to 64, not `epic.…`);
+up to 25 properties of strings (cut to 200 characters), numbers or booleans.
 
 ## In your pages
 

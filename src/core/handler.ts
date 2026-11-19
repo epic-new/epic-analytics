@@ -7,7 +7,7 @@ import {
   resolveOptions,
   secureApiUrl,
 } from "./options";
-import { newVisitorId, pseudonymOf, visitorCookie, visitorIdFrom } from "./subject";
+import { newVisitorId, organizationPseudonymOf, pseudonymOf, visitorCookie, visitorIdFrom } from "./subject";
 
 /** The generation of the pipe contract Epic reads in `x-epic-pipe`. */
 const PIPE_CONTRACT = "2";
@@ -94,7 +94,10 @@ async function handle(request: Request, options: EpicHandlerOptions, path?: stri
     headers.set("x-epic-subject-kind", subject.kind);
   }
   // Once per page load, never with telemetry or reports: the profile travels only where Epic records it.
-  const person = user && request.method === "POST" && segments.join("/") === "identity" ? personHeader(user) : null;
+  const person =
+    user && request.method === "POST" && segments.join("/") === "identity"
+      ? await personHeader(user, config.secret)
+      : null;
   if (person) headers.set("x-epic-person", person);
 
   const body = request.body ? bounded(request.body, config.maxBodyBytes) : null;
@@ -167,15 +170,27 @@ const MAX_NAME_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 254;
 
 /**
- * The name and email Epic may show for this person, as base64url JSON, or
- * null when the app gave neither. Epic validates it again; cutting it here only
+ * The name, email and organization Epic may show for this person, as
+ * base64url JSON, or null when the app gave none. Epic validates it again; cutting it here only
  * keeps an oversized value from being sent at all.
  */
-function personHeader(user: CurrentUserProfile): string | null {
+async function personHeader(user: CurrentUserProfile, secret: string): Promise<string | null> {
   const name = text(user.name, MAX_NAME_LENGTH);
   const email = text(user.email, MAX_EMAIL_LENGTH);
-  if (!name && !email) return null;
-  const json = JSON.stringify({ ...(name ? { name } : {}), ...(email ? { email } : {}) });
+  const organizationId = text(user.organization?.id, 256);
+  const organizationName = text(user.organization?.name, MAX_NAME_LENGTH);
+  const organization = organizationId
+    ? {
+        id: await organizationPseudonymOf(organizationId, secret),
+        ...(organizationName ? { name: organizationName } : {}),
+      }
+    : null;
+  if (!name && !email && !organization) return null;
+  const json = JSON.stringify({
+    ...(name ? { name } : {}),
+    ...(email ? { email } : {}),
+    ...(organization ? { organization } : {}),
+  });
   let binary = "";
   for (const byte of new TextEncoder().encode(json)) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

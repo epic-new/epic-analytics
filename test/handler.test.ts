@@ -454,3 +454,26 @@ describe("showing a person by name", () => {
     expect(person(received[0]?.headers["x-epic-person"])).toEqual({ name: "é".repeat(100) });
   });
 });
+
+describe("organization on the profile", () => {
+  it("sends a pseudonym of the organization's id, never the id, with its name", async () => {
+    await createEpicHandler({
+      currentUser: () => ({ id: "user-1", name: "Ana", organization: { id: "acme-42", name: "Acme" } }),
+      apiUrl: `http://127.0.0.1:${epic.port}`,
+      token: "epr_test",
+      secret: SECRET,
+    })(
+      new Request(`${APP}/api/epic/identity`, {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin", "content-type": "application/json" },
+        body: "{}",
+      }),
+    );
+
+    const header = received[0]?.headers["x-epic-person"] ?? "";
+    const person = JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
+    const expected = `org_${createHmac("sha256", SECRET).update("epic-replay-subject:v1:organization:acme-42").digest("base64url")}`;
+    expect(person).toEqual({ name: "Ana", organization: { id: expected, name: "Acme" } });
+    expect(header).not.toContain("acme-42");
+  });
+});
