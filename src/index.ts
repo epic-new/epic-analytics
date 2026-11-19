@@ -7,5 +7,5 @@
  * for the runtime's API in the page.
  */
 export { createEpicHandler, type EpicHandler } from "./core/handler";
-export type { CurrentUserId, EpicHandlerOptions } from "./core/options";
+export type { CurrentUser, CurrentUserId, CurrentUserProfile, EpicHandlerOptions } from "./core/options";
 export { VERSION } from "./version";

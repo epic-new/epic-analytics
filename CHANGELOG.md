@@ -4,6 +4,15 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `currentUser`: an alternative to `currentUserId` that also returns the
+  person's `name` and `email`, so Analytics can show people by name. They are
+  sent as `x-epic-person` on the `identity` call only, from the server, cut to
+  100 and 254 characters. `currentUserId` keeps working unchanged.
+
 ## [0.1.2] - 2026-11-16
 
 ### Fixed

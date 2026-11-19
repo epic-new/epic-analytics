@@ -4,7 +4,7 @@ import { createElement, type ReactElement } from "react";
 import { createEpicHandler } from "../core/handler";
 import { type EpicHandlerOptions, env } from "../core/options";
 
-export type { CurrentUserId, EpicHandlerOptions } from "../core/options";
+export type { CurrentUser, CurrentUserId, CurrentUserProfile, EpicHandlerOptions } from "../core/options";
 
 type RouteContext = { params?: Promise<{ path?: string[] }> | { path?: string[] } };
 type RouteHandler = (request: Request, context?: RouteContext) => Promise<Response>;
