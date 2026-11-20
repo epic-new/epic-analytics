@@ -21,6 +21,16 @@ export async function pseudonymOf(kind: SubjectKind, id: string, secret: string)
   return `sub_${base64url(new Uint8Array(signature))}`;
 }
 
+/** An organization as Epic knows it: a pseudonym of its id under the same secret, never the id. */
+export async function organizationPseudonymOf(id: string, secret: string): Promise<string> {
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await keyFor(secret),
+    encoder.encode(`${SUBJECT_DOMAIN}:organization:${id}`),
+  );
+  return `org_${base64url(new Uint8Array(signature))}`;
+}
+
 /** A visitor's id: 32 random bytes. It names nobody, so it needs no signature. */
 export function newVisitorId(): string {
   return base64url(crypto.getRandomValues(new Uint8Array(32)));

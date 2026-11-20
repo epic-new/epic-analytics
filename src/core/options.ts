@@ -1,18 +1,61 @@
 /** Who is signed in for this request: their id, or nothing for nobody. */
 export type CurrentUserId = (request: Request) => string | null | undefined | Promise<string | null | undefined>;
 
-export interface EpicHandlerOptions {
+/**
+ * The signed-in person as Epic may show them. `id` never reaches Epic, only a
+ * pseudonym of it; `name` and `email` are what Analytics shows the project's
+ * managers in place of that pseudonym.
+ */
+export type CurrentUserProfile = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
   /**
-   * Who is signed in, read from your own session. It is the one line that knows
-   * your app; Epic never sees the id, only a pseudonym of it.
-   *
-   * @example
-   * async currentUserId() {
-   *   const session = await auth();
-   *   return session?.user?.id;
-   * }
+   * The company, team or account the person is acting for, so Analytics can
+   * look at a customer as a whole. Its id never reaches Epic either, only a
+   * pseudonym of it.
    */
-  currentUserId: CurrentUserId;
+  organization?: { id: string; name?: string | null } | null;
+};
+
+/** Who is signed in for this request, with what Epic may show of them, or nothing for nobody. */
+export type CurrentUser = (
+  request: Request,
+) => CurrentUserProfile | null | undefined | Promise<CurrentUserProfile | null | undefined>;
+
+/**
+ * Who is signed in, read from your own session: the one part that knows your
+ * app. Either `currentUser`, to show people by name in Analytics, or
+ * `currentUserId`, to keep them pseudonymous.
+ */
+type Identification =
+  | {
+      /**
+       * @example
+       * async currentUser() {
+       *   const session = await auth();
+       *   return session?.user && { id: session.user.id, name: session.user.name, email: session.user.email };
+       * }
+       */
+      currentUser: CurrentUser;
+      currentUserId?: never;
+    }
+  | {
+      /**
+       * Epic never sees the id, only a pseudonym of it, and shows the person by
+       * that pseudonym.
+       *
+       * @example
+       * async currentUserId() {
+       *   const session = await auth();
+       *   return session?.user?.id;
+       * }
+       */
+      currentUserId: CurrentUserId;
+      currentUser?: never;
+    };
+
+export type EpicHandlerOptions = Identification & {
   /** Epic's address. Defaults to `EPIC_API_URL`. */
   apiUrl?: string;
   /** This application's publishing token. Defaults to `EPIC_PUBLISHING_TOKEN`. */
@@ -38,12 +81,12 @@ export interface EpicHandlerOptions {
   timeoutMs?: number;
   /** The largest request body forwarded. Defaults to 4 MiB, under serverless platforms' own limits. */
   maxBodyBytes?: number;
-}
+};
 
 /** Options win over the environment, read on every request so a runtime env change applies. */
 export function resolveOptions(options: EpicHandlerOptions) {
   return {
-    currentUserId: options.currentUserId,
+    currentUser: identifier(options),
     apiUrl: options.apiUrl ?? env("EPIC_API_URL"),
     token: options.token ?? env("EPIC_PUBLISHING_TOKEN"),
     secret: options.secret ?? env("EPIC_SECRET"),
@@ -53,6 +96,16 @@ export function resolveOptions(options: EpicHandlerOptions) {
     upstreamHeaders: options.upstreamHeaders ?? {},
     timeoutMs: options.timeoutMs ?? 15_000,
     maxBodyBytes: options.maxBodyBytes ?? 4 * 1024 * 1024,
+  };
+}
+
+/** Both forms as one: who is signed in, with a profile only when the app gave one. */
+function identifier(options: EpicHandlerOptions): CurrentUser {
+  if (options.currentUser) return options.currentUser;
+  const currentUserId = options.currentUserId;
+  return async (request) => {
+    const id = await currentUserId?.(request);
+    return id ? { id } : null;
   };
 }
 

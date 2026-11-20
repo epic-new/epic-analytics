@@ -16,6 +16,9 @@ for this repository. We acknowledge reports within two business days.
   redirect.
 - Epic receives a pseudonym of a user id — HMAC-SHA256 under a secret of at
   least 32 characters — never the id itself.
+- A name and email reach Epic only when the app's `currentUser` returns them:
+  set by the app's server in `x-epic-person`, only on the `identity` call, never
+  from the browser (no browser header is forwarded under that name).
 - Only an allow-list of the browser's own headers is forwarded (user agent,
   language, client hints, privacy signals, the edge's country). Cookies,
   `Authorization`, IP addresses, the referrer and any other header never are.

@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { createHmac } from "node:crypto";
 
-import { createEpicHandler, type EpicHandlerOptions } from "../src";
+import { type CurrentUserId, createEpicHandler, type EpicHandlerOptions } from "../src";
+
+/** The options a test varies, under `currentUserId`; `currentUser` is exercised on its own. */
+type IdOptions = Partial<Extract<EpicHandlerOptions, { currentUserId: CurrentUserId }>>;
 
 /**
  * The pipe against a real local server standing in for Epic: what reaches
@@ -52,7 +55,7 @@ beforeEach(() => {
     );
 });
 
-function handler(options: Partial<EpicHandlerOptions> = {}) {
+function handler(options: IdOptions = {}) {
   return createEpicHandler({
     currentUserId: () => signedIn,
     apiUrl: `http://127.0.0.1:${epic.port}`,
@@ -63,12 +66,7 @@ function handler(options: Partial<EpicHandlerOptions> = {}) {
   });
 }
 
-function call(
-  method: "GET" | "POST",
-  path: string,
-  headers: Record<string, string> = {},
-  options: Partial<EpicHandlerOptions> = {},
-) {
+function call(method: "GET" | "POST", path: string, headers: Record<string, string> = {}, options: IdOptions = {}) {
   const request = new Request(`${APP}/api/epic/${path}`, {
     method,
     headers:
@@ -402,5 +400,80 @@ describe("who the person is", () => {
 
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(received[0]?.headers["x-epic-subject"]).toBe(expectedPseudonym("anonymous", "v".repeat(43)));
+  });
+});
+
+describe("showing a person by name", () => {
+  function profiled(user: { id: string; name?: string | null; email?: string | null } | null) {
+    return createEpicHandler({
+      currentUser: () => user,
+      apiUrl: `http://127.0.0.1:${epic.port}`,
+      token: "epr_test",
+      secret: SECRET,
+    });
+  }
+
+  function post(path: string, headers: Record<string, string> = {}) {
+    return new Request(`${APP}/api/epic/${path}`, {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin", "content-type": "application/json", ...headers },
+      body: "{}",
+    });
+  }
+
+  function person(header: string | undefined): unknown {
+    return header === undefined ? undefined : JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
+  }
+
+  it("sends the name and email on the identity call, under the same pseudonym as currentUserId", async () => {
+    await profiled({ id: "user-1", name: "  Ana Souza ", email: "ana@example.com" })(post("identity"));
+
+    expect(received[0]?.headers["x-epic-subject"]).toBe(expectedPseudonym("user", "user-1"));
+    expect(person(received[0]?.headers["x-epic-person"])).toEqual({ name: "Ana Souza", email: "ana@example.com" });
+  });
+
+  it("never sends them with telemetry or reports", async () => {
+    const handler = profiled({ id: "user-1", name: "Ana", email: "ana@example.com" });
+    await handler(post("telemetry"));
+    await handler(post("reports"));
+
+    expect(received.map((request) => request.headers["x-epic-person"])).toEqual([undefined, undefined]);
+  });
+
+  it("does not let the browser set them", async () => {
+    const forged = Buffer.from('{"name":"Someone else"}').toString("base64url");
+    await profiled({ id: "user-1" })(post("identity", { "x-epic-person": forged }));
+    await profiled(null)(post("identity", { "x-epic-person": forged }));
+
+    expect(received.map((request) => request.headers["x-epic-person"])).toEqual([undefined, undefined]);
+  });
+
+  it("cuts an oversized name before sending it, whole characters only", async () => {
+    await profiled({ id: "user-1", name: "é".repeat(150) })(post("identity"));
+
+    expect(person(received[0]?.headers["x-epic-person"])).toEqual({ name: "é".repeat(100) });
+  });
+});
+
+describe("organization on the profile", () => {
+  it("sends a pseudonym of the organization's id, never the id, with its name", async () => {
+    await createEpicHandler({
+      currentUser: () => ({ id: "user-1", name: "Ana", organization: { id: "acme-42", name: "Acme" } }),
+      apiUrl: `http://127.0.0.1:${epic.port}`,
+      token: "epr_test",
+      secret: SECRET,
+    })(
+      new Request(`${APP}/api/epic/identity`, {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin", "content-type": "application/json" },
+        body: "{}",
+      }),
+    );
+
+    const header = received[0]?.headers["x-epic-person"] ?? "";
+    const person = JSON.parse(Buffer.from(header, "base64url").toString("utf8"));
+    const expected = `org_${createHmac("sha256", SECRET).update("epic-replay-subject:v1:organization:acme-42").digest("base64url")}`;
+    expect(person).toEqual({ name: "Ana", organization: { id: expected, name: "Acme" } });
+    expect(header).not.toContain("acme-42");
   });
 });

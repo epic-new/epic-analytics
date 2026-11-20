@@ -1,7 +1,13 @@
 import { VERSION } from "../version";
 import { forwardedHeaders, relayedHeaders } from "./headers";
-import { type EpicHandlerOptions, resolveOptions, secureApiUrl } from "./options";
-import { newVisitorId, pseudonymOf, visitorCookie, visitorIdFrom } from "./subject";
+import {
+  type CurrentUser,
+  type CurrentUserProfile,
+  type EpicHandlerOptions,
+  resolveOptions,
+  secureApiUrl,
+} from "./options";
+import { newVisitorId, organizationPseudonymOf, pseudonymOf, visitorCookie, visitorIdFrom } from "./subject";
 
 /** The generation of the pipe contract Epic reads in `x-epic-pipe`. */
 const PIPE_CONTRACT = "2";
@@ -72,7 +78,8 @@ async function handle(request: Request, options: EpicHandlerOptions, path?: stri
   forwardedHeaders(request, headers);
   if (config.release) headers.set("x-epic-release", config.release);
 
-  const userId = await signedIn(config.currentUserId, request);
+  const user = await signedIn(config.currentUser, request);
+  const userId = user?.id ?? null;
   let visitorId = userId ? null : visitorIdFrom(request);
   // The runtime asks for a visitor only where the environment's policy lets visitors take part.
   const minted = !userId && !visitorId && request.headers.get("x-epic-visitor") === "mint";
@@ -86,6 +93,12 @@ async function handle(request: Request, options: EpicHandlerOptions, path?: stri
     headers.set("x-epic-subject", await pseudonymOf(subject.kind, subject.id, config.secret));
     headers.set("x-epic-subject-kind", subject.kind);
   }
+  // Once per page load, never with telemetry or reports: the profile travels only where Epic records it.
+  const person =
+    user && request.method === "POST" && segments.join("/") === "identity"
+      ? await personHeader(user, config.secret)
+      : null;
+  if (person) headers.set("x-epic-person", person);
 
   const body = request.body ? bounded(request.body, config.maxBodyBytes) : null;
   let response: Response;
@@ -143,13 +156,49 @@ function bounded(stream: ReadableStream<Uint8Array>, maxBytes: number) {
   };
 }
 
-/** The signed-in user's id; a session that cannot be read names nobody rather than failing the page's request. */
-async function signedIn(currentUserId: EpicHandlerOptions["currentUserId"], request: Request): Promise<string | null> {
+/** The signed-in user; a session that cannot be read names nobody rather than failing the page's request. */
+async function signedIn(currentUser: CurrentUser, request: Request): Promise<CurrentUserProfile | null> {
   try {
-    return (await currentUserId(request)) || null;
+    const user = await currentUser(request);
+    return user?.id ? user : null;
   } catch {
     return null;
   }
+}
+
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254;
+
+/**
+ * The name, email and organization Epic may show for this person, as
+ * base64url JSON, or null when the app gave none. Epic validates it again; cutting it here only
+ * keeps an oversized value from being sent at all.
+ */
+async function personHeader(user: CurrentUserProfile, secret: string): Promise<string | null> {
+  const name = text(user.name, MAX_NAME_LENGTH);
+  const email = text(user.email, MAX_EMAIL_LENGTH);
+  const organizationId = text(user.organization?.id, 256);
+  const organizationName = text(user.organization?.name, MAX_NAME_LENGTH);
+  const organization = organizationId
+    ? {
+        id: await organizationPseudonymOf(organizationId, secret),
+        ...(organizationName ? { name: organizationName } : {}),
+      }
+    : null;
+  if (!name && !email && !organization) return null;
+  const json = JSON.stringify({
+    ...(name ? { name } : {}),
+    ...(email ? { email } : {}),
+    ...(organization ? { organization } : {}),
+  });
+  let binary = "";
+  for (const byte of new TextEncoder().encode(json)) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function text(value: string | null | undefined, max: number): string | null {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed ? Array.from(trimmed).slice(0, max).join("") : null;
 }
 
 function isHttps(request: Request): boolean {

@@ -15,8 +15,10 @@
 ---
 
 - **Three files, five minutes.** A route, a script tag, an instrumentation hook.
-- **Your users stay yours.** Epic never sees a user id, a cookie or an IP address
-  — only a pseudonym your server derives with your own secret.
+- **Your users stay yours.** Epic never sees a user id or a cookie, and never
+  stores an IP address — only a pseudonym your server derives with your own
+  secret, and a name and email only if you choose to
+  [show people by name](#show-people-by-name).
 - **Never out of date.** The recorder, consent prompt and report button are
   served by Epic through your route. Improvements reach your app on its next page
   load, with no upgrade on your side.
@@ -202,6 +204,56 @@ async currentUserId() {
 It receives the incoming `Request` if you need it. If it throws, the person is
 treated as signed out — your page never fails because of Epic.
 
+## Show people by name
+
+With `currentUserId`, Analytics shows each person by a pseudonym ("User 7f3a").
+To see who they are, use `currentUser` instead and return their name and email
+along with the id:
+
+```ts
+export const { GET, POST } = createEpicRoute({
+  async currentUser() {
+    const session = await auth();
+    const user = session?.user;
+    return user && { id: user.id, name: user.name, email: user.email };
+  },
+});
+```
+
+- The id still never reaches Epic: only its pseudonym, as before.
+- Name and email are sent from your server, once per page load (the runtime's
+  `identity` call), never with recordings, telemetry or reports. The browser
+  cannot set or change them.
+- Epic stores them encrypted, shows them only to the people who manage the
+  project, and replaces them when they change. A manager can remove a person's
+  details from their page in Analytics.
+- Name is cut to 100 characters, email to 254. Leave both out to keep a person
+  pseudonymous.
+- Add `organization: { id, name }` for B2B apps, so Analytics can look at a
+  customer account as a whole. Its id reaches Epic only as a pseudonym, like
+  the person's.
+
+This makes Epic a processor of that personal data on your behalf; say so where
+your privacy policy lists the services you use.
+
+## Events from your server
+
+Something that happens on your server — a webhook, a renewal, a job that
+finished — can be recorded for the person it happened to, and shows up with
+their sessions:
+
+```ts
+import { capture } from "@epicnew/analytics";
+
+await capture({ userId: user.id, event: "subscription_renewed", properties: { plan: "pro" } });
+```
+
+It uses the same `EPIC_API_URL`, `EPIC_PUBLISHING_TOKEN` and `EPIC_SECRET` as
+the route, so the person is the same person. It never throws: it resolves
+`false` when Epic is not configured, the event is not valid or Epic did not
+accept it. Names are letters, digits and `_ . : -` (up to 64, not `epic.…`);
+up to 25 properties of strings (cut to 200 characters), numbers or booleans.
+
 ## In your pages
 
 `@epicnew/analytics/browser` gives you a typed handle on the runtime once it has
@@ -339,7 +391,8 @@ there.
 
 | Option            | Default                                  |                                                      |
 | ----------------- | ---------------------------------------- | ---------------------------------------------------- |
-| `currentUserId`   | —                                        | **Required.** Who is signed in                       |
+| `currentUser`     | —                                        | Who is signed in, with name and email (one of these) |
+| `currentUserId`   | —                                        | Who is signed in, by id only (one of these)          |
 | `apiUrl`          | `EPIC_API_URL`                           |                                                      |
 | `token`           | `EPIC_PUBLISHING_TOKEN`                  |                                                      |
 | `secret`          | `EPIC_SECRET`                            |                                                      |
@@ -404,6 +457,8 @@ is in the **root** layout.
 
 - Only an allow-list of the browser's own headers reaches Epic: user agent,
   language, client hints, privacy signals and your edge's country.
+- A person's name and email reach Epic only when `currentUser` returns them,
+  only from your server, and only on the `identity` call.
 - The token only travels over https, never along a redirect, never to the
   browser.
 - Writes must come from your own pages (`Sec-Fetch-Site`); paths cannot leave
